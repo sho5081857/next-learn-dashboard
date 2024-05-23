@@ -1,5 +1,6 @@
-import { auth } from "@/auth";
+import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { UnauthorizedError } from './errors';
 
 export async function getApiUrl() {
   const apiUrl = process.env.API_URL;
@@ -9,11 +10,11 @@ export async function getApiUrl() {
   return apiUrl;
 }
 
-export  async function getAccessToken() {
+export async function getAccessToken() {
   const session = await auth();
   const token = session?.accessToken;
   if (!token) {
-    redirect('/sign-out');
+    throw new UnauthorizedError();
   }
   return token;
 }

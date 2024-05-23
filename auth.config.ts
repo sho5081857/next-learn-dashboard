@@ -13,10 +13,11 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const isOnDashboard = nextUrl.pathname.startsWith('/dashboard');
-      if (isOnDashboard) {
+      const isOnSignOut = nextUrl.pathname.startsWith('/sign-out');
+      if (isOnDashboard || isOnSignOut) {
         if (isLoggedIn) return true;
         return false; // Redirect unauthenticated users to login page
-      } else if (isLoggedIn) {
+      } else if (isLoggedIn && !isOnSignOut) {
         return Response.redirect(new URL('/dashboard', nextUrl));
       }
       return true;

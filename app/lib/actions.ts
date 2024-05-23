@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
 import { getAccessToken, getApiUrl } from './apiConfig';
+import { UnauthorizedError } from './errors';
 
 const FormSchema = z.object({
   id: z.string(),
@@ -55,7 +56,6 @@ export async function createInvoice(prevState: State, formData: FormData) {
   const amountInCents = amount * 100;
   const date = new Date();
 
-  // Insert data into the database
   try {
     // await sql`
     //   INSERT INTO invoices (customer_id, amount, status, date)
@@ -65,7 +65,7 @@ export async function createInvoice(prevState: State, formData: FormData) {
     const token = await getAccessToken();
 
     const res = await fetch(apiUrl + '/invoices', {
-      method: '',
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -74,17 +74,23 @@ export async function createInvoice(prevState: State, formData: FormData) {
         customer_id: customerId,
         amount: amountInCents,
         status: status,
+        date: date,
       }),
     });
 
-    // レスポンスをチェック
-    if (res.status < 200 || res.status >= 300) {
-      return {
-        message: 'Error: Failed to Create Invoice.',
-      };
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error();
     }
   } catch (error) {
-    return { message: 'Database Error: Failed to Create Invoice.' };
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    return {
+      message: 'Error: Failed to Create Invoice.',
+    };
   }
 
   // Revalidate the cache for the invoices page and redirect the user.
@@ -135,25 +141,25 @@ export async function updateInvoice(
       }),
     });
 
-    // レスポンスをチェック
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
-    }
-    if (res.status < 200 || res.status >= 300) {
-      return {
-        message: 'Error: Failed to Update Invoice.',
-      };
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error();
     }
   } catch (error) {
-    return { message: 'Database Error: Failed to Update Invoice.' };
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    return {
+      message: 'Error: Failed to Update Invoice.',
+    };
   }
-
   revalidatePath('/dashboard/invoices');
   redirect('/dashboard/invoices');
 }
 
 export async function deleteInvoice(id: string) {
-  // throw new Error('Failed to Delete Invoice');
 
   try {
     // await sql`DELETE FROM invoices WHERE id = ${id}`;
@@ -168,20 +174,23 @@ export async function deleteInvoice(id: string) {
       },
     });
 
-    // レスポンスをチェック
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
-    }
-    if (res.status < 200 || res.status >= 300) {
-      return {
-        message: 'Error: Failed to Delete Invoice.',
-      };
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error();
     }
 
     revalidatePath('/dashboard/invoices');
     return { message: 'Deleted Invoice' };
+
   } catch (error) {
-    return { message: 'Database Error: Failed to Delete Invoice.' };
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    return {
+      message: 'Error: Failed to Delete Invoice.',
+    };
   }
 }
 
@@ -223,12 +232,8 @@ export async function signUp(
       }),
     });
 
-    // レスポンスをチェック
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
-    }
-    if (res.status < 200 || res.status >= 300) {
-      return 'Error: Failed to sign up.';
+    if (!res.ok) {
+      throw new Error();
     }
   } catch (error) {
     return 'Error: Failed to sign up.';

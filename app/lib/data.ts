@@ -10,6 +10,7 @@ import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getAccessToken, getApiUrl } from './apiConfig';
+import { UnauthorizedError } from '../lib/errors';
 
 export async function fetchRevenue() {
   // Add noStore() here to prevent the response from being cached.
@@ -34,17 +35,23 @@ export async function fetchRevenue() {
       },
     });
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
-    }
-
     const data = await res.json();
 
     // console.log('Data fetch completed after 3 seconds.');
 
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch revenue data.');
+    }
+
     return data as Revenue[];
   } catch (error) {
-    throw new Error('Failed to fetch revenue data.');
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    throw error;
   }
 }
 
@@ -68,19 +75,24 @@ export async function fetchLatestInvoices() {
       },
     });
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
-    }
-
     const data = (await res.json()) as LatestInvoiceRaw[];
 
     const latestInvoices = data.map((invoice: LatestInvoiceRaw) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
     }));
+
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch the latest invoices.');
+    }
+
     return latestInvoices;
   } catch (error) {
-    throw new Error('Failed to fetch the latest invoices.');
+    console.error('Failed to fetch the latest invoices.');
+    redirect('/sign-out');
   }
 }
 
@@ -121,10 +133,13 @@ export async function fetchCardData() {
       }),
     ]);
 
-    if (
-      res.some((response) => response.status === 401 || response.status === 403)
-    ) {
-      redirect('/sign-out');
+    for (const response of res) {
+      if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          throw new UnauthorizedError();
+        }
+        throw new Error('Failed to fetch card data.');
+      }
     }
 
     const data = await Promise.all(res.map((response) => response.json()));
@@ -140,8 +155,11 @@ export async function fetchCardData() {
       totalPaidInvoices,
       totalPendingInvoices,
     };
-  } catch (error: any) {
-    throw new Error('Failed to fetch card data.');
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    throw error;
   }
 }
 
@@ -187,15 +205,21 @@ export async function fetchFilteredInvoices(
       },
     );
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch invoices.');
     }
 
     const data = await res.json();
 
     return data as InvoicesTable[];
   } catch (error) {
-    throw new Error('Failed to fetch invoices.');
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    throw error;
   }
 }
 
@@ -223,8 +247,11 @@ export async function fetchInvoicesPages(query: string) {
       },
     });
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch total number of invoices.');
     }
 
     const count = await res.json();
@@ -232,7 +259,10 @@ export async function fetchInvoicesPages(query: string) {
     const totalPages = Math.ceil(Number(count) / ITEMS_PER_PAGE);
     return totalPages;
   } catch (error) {
-    throw new Error('Failed to fetch total number of invoices.');
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    throw error;
   }
 }
 
@@ -259,8 +289,11 @@ export async function fetchInvoiceById(id: string) {
       },
     });
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch invoice.');
     }
 
     const data = (await res.json()) as InvoiceForm;
@@ -272,12 +305,11 @@ export async function fetchInvoiceById(id: string) {
     // }));
     data.amount = data.amount / 100;
     return data;
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
     }
-    throw new Error('Failed to fetch invoice.');
+    throw error;
   }
 }
 
@@ -302,15 +334,21 @@ export async function fetchCustomers() {
       },
     });
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch all customers.');
     }
 
     const customers = (await res.json()) as CustomerField[];
 
     return customers;
   } catch (error) {
-    throw new Error('Failed to fetch all customers.');
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    throw error;
   }
 }
 
@@ -344,8 +382,11 @@ export async function fetchFilteredCustomers(query: string) {
       },
     });
 
-    if (res.status === 401 || res.status === 403) {
-      redirect('/sign-out');
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        throw new UnauthorizedError();
+      }
+      throw new Error('Failed to fetch customer table.');
     }
 
     const data = (await res.json()) as CustomersTableType[];
@@ -358,7 +399,10 @@ export async function fetchFilteredCustomers(query: string) {
 
     return customers;
   } catch (error) {
-    throw new Error('Failed to fetch customer table.');
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    }
+    throw error;
   }
 }
 
