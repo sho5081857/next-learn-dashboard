@@ -8,9 +8,8 @@ import {
 } from './definitions';
 import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
-import axios from 'axios';
-import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { getAccessToken, getApiUrl } from './apiConfig';
 
 export async function fetchRevenue() {
   // Add noStore() here to prevent the response from being cached.
@@ -25,26 +24,26 @@ export async function fetchRevenue() {
 
     // const data = await sql<Revenue>`SELECT * FROM revenue`;
 
-    // 外部APIにリクエストを送信
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.get(apiUrl + '/revenues', {
-      timeout: 1000,
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(apiUrl + '/revenues', {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     });
-    // console.log('Data fetch completed after 3 seconds.');
 
-    return response.data as Revenue[];
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
+    if (res.status === 401 || res.status === 403) {
       redirect('/sign-out');
     }
+
+    const data = await res.json();
+
+    // console.log('Data fetch completed after 3 seconds.');
+
+    return data as Revenue[];
+  } catch (error) {
     throw new Error('Failed to fetch revenue data.');
   }
 }
@@ -59,30 +58,28 @@ export async function fetchLatestInvoices() {
     //   ORDER BY invoices.date DESC
     //   LIMIT 5`;
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.get(apiUrl + '/invoices/latest', {
-      timeout: 1000,
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(apiUrl + '/invoices/latest', {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     });
 
-    const data = response.data as LatestInvoiceRaw[];
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
+    }
+
+    const data = (await res.json()) as LatestInvoiceRaw[];
 
     const latestInvoices = data.map((invoice: LatestInvoiceRaw) => ({
       ...invoice,
       amount: formatCurrency(invoice.amount),
     }));
     return latestInvoices;
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    }
+  } catch (error) {
     throw new Error('Failed to fetch the latest invoices.');
   }
 }
@@ -100,34 +97,42 @@ export async function fetchCardData() {
     //      SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
     //      FROM invoices`;
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
-    const session = await auth();
-    const token = session?.accessToken;
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const response = await Promise.all([
-      axios.get(apiUrl + '/invoices/count', {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
+    const res = await Promise.all([
+      await fetch(apiUrl + '/invoices/count', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       }),
-      axios.get(apiUrl + '/customers/count', {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
+      await fetch(apiUrl + '/customers/count', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       }),
-      axios.get(apiUrl + '/invoices/statusCount', {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
+      await fetch(apiUrl + '/invoices/statusCount', {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       }),
     ]);
 
-    const numberOfInvoices = Number(response[0].data ?? '0');
-    const numberOfCustomers = Number(response[1].data ?? '0');
-    const totalPaidInvoices = formatCurrency(response[2].data.paid ?? '0');
-    const totalPendingInvoices = formatCurrency(
-      response[2].data.pending ?? '0',
-    );
+    if (
+      res.some((response) => response.status === 401 || response.status === 403)
+    ) {
+      redirect('/sign-out');
+    }
+
+    const data = await Promise.all(res.map((response) => response.json()));
+
+    const numberOfInvoices = Number(data[0] ?? '0');
+    const numberOfCustomers = Number(data[1] ?? '0');
+    const totalPaidInvoices = formatCurrency(data[2].paid ?? '0');
+    const totalPendingInvoices = formatCurrency(data[2].pending ?? '0');
 
     return {
       numberOfCustomers,
@@ -136,10 +141,6 @@ export async function fetchCardData() {
       totalPendingInvoices,
     };
   } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    }
     throw new Error('Failed to fetch card data.');
   }
 }
@@ -173,29 +174,27 @@ export async function fetchFilteredInvoices(
     // ORDER BY invoices.date DESC
     // LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     // `;
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
-    const session = await auth();
-    const token = session?.accessToken;
-
-    const response = await axios.get(
+    const res = await fetch(
       apiUrl + '/invoices/filtered?page=' + currentPage + '&query=' + query,
       {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       },
     );
-    const invoices = response.data as InvoicesTable[];
 
-    return invoices;
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
+    if (res.status === 401 || res.status === 403) {
       redirect('/sign-out');
     }
+
+    const data = await res.json();
+
+    return data as InvoicesTable[];
+  } catch (error) {
     throw new Error('Failed to fetch invoices.');
   }
 }
@@ -214,29 +213,25 @@ export async function fetchInvoicesPages(query: string) {
     //     invoices.status ILIKE ${`%${query}%`}
     // `;
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
+
+    const res = await fetch(apiUrl + '/invoices/pages?query=' + query, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
     }
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.get(
-      apiUrl + '/invoices/pages?query=' + query,
-      {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    const count = response.data;
+    const count = await res.json();
 
     const totalPages = Math.ceil(Number(count) / ITEMS_PER_PAGE);
     return totalPages;
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    }
+  } catch (error) {
     throw new Error('Failed to fetch total number of invoices.');
   }
 }
@@ -254,17 +249,21 @@ export async function fetchInvoiceById(id: string) {
     //   WHERE invoices.id = ${id};
     // `;
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.get(apiUrl + '/invoices/' + id, {
-      timeout: 1000,
-      headers: { Authorization: `Bearer ${token}` },
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
+
+    const res = await fetch(apiUrl + '/invoices/' + id, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     });
-    const data = response.data as InvoiceForm;
+
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
+    }
+
+    const data = (await res.json()) as InvoiceForm;
 
     // const invoice = data.map((invoice) => ({
     //   ...invoice,
@@ -293,26 +292,24 @@ export async function fetchCustomers() {
     //   ORDER BY name ASC
     // `;
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.get(apiUrl + '/customers', {
-      timeout: 1000,
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(apiUrl + '/customers', {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     });
 
-    const data = response.data as CustomerField[];
-    const customers = data;
-    return customers;
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
+    if (res.status === 401 || res.status === 403) {
       redirect('/sign-out');
     }
+
+    const customers = (await res.json()) as CustomerField[];
+
+    return customers;
+  } catch (error) {
     throw new Error('Failed to fetch all customers.');
   }
 }
@@ -337,21 +334,22 @@ export async function fetchFilteredCustomers(query: string) {
     // GROUP BY customers.id, customers.name, customers.email, customers.image_url
     // ORDER BY customers.name ASC
     // `;
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
+
+    const res = await fetch(apiUrl + '/customers/filtered?query=' + query, {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
     }
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.get(
-      apiUrl + '/customers/filtered?query=' + query,
-      {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
-    const data = response.data as CustomersTableType[];
+    const data = (await res.json()) as CustomersTableType[];
+
     const customers = data.map((customer) => ({
       ...customer,
       total_pending: formatCurrency(customer.total_pending),
@@ -359,11 +357,7 @@ export async function fetchFilteredCustomers(query: string) {
     }));
 
     return customers;
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    }
+  } catch (error) {
     throw new Error('Failed to fetch customer table.');
   }
 }

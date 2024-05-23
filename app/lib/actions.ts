@@ -3,9 +3,9 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { auth, signIn } from '@/auth';
+import { signIn } from '@/auth';
 import { AuthError } from 'next-auth';
-import axios from 'axios';
+import { getAccessToken, getApiUrl } from './apiConfig';
 
 const FormSchema = z.object({
   id: z.string(),
@@ -61,39 +61,30 @@ export async function createInvoice(prevState: State, formData: FormData) {
     //   INSERT INTO invoices (customer_id, amount, status, date)
     //   VALUES (${customerId}, ${amountInCents}, ${status}, ${date})
     // `;
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.post(
-      apiUrl + '/invoices',
-      {
+    const res = await fetch(apiUrl + '/invoices', {
+      method: '',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
         customer_id: customerId,
         amount: amountInCents,
         status: status,
-        date: date,
-      },
-      {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
+      }),
+    });
+
     // レスポンスをチェック
-    if (response.status < 200 || response.status >= 300) {
+    if (res.status < 200 || res.status >= 300) {
       return {
         message: 'Error: Failed to Create Invoice.',
       };
     }
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    } else {
-      return { message: 'Database Error: Failed to Create Invoice.' };
-    }
+  } catch (error) {
+    return { message: 'Database Error: Failed to Create Invoice.' };
   }
 
   // Revalidate the cache for the invoices page and redirect the user.
@@ -128,38 +119,33 @@ export async function updateInvoice(
     //   SET customer_id = ${customerId}, amount = ${amountInCents}, status = ${status}
     //   WHERE id = ${id}
     // `;
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
 
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.patch(
-      apiUrl + '/invoices/' + id,
-      {
+    const res = await fetch(apiUrl + '/invoices/' + id, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
         customer_id: customerId,
         amount: amountInCents,
         status: status,
-      },
-      {
-        timeout: 1000,
-        headers: { Authorization: `Bearer ${token}` },
-      },
-    );
+      }),
+    });
+
     // レスポンスをチェック
-    if (response.status < 200 || response.status >= 300) {
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
+    }
+    if (res.status < 200 || res.status >= 300) {
       return {
         message: 'Error: Failed to Update Invoice.',
       };
     }
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    } else {
-      return { message: 'Database Error: Failed to Update Invoice.' };
-    }
+  } catch (error) {
+    return { message: 'Database Error: Failed to Update Invoice.' };
   }
 
   revalidatePath('/dashboard/invoices');
@@ -172,19 +158,21 @@ export async function deleteInvoice(id: string) {
   try {
     // await sql`DELETE FROM invoices WHERE id = ${id}`;
 
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
-
-    const session = await auth();
-    const token = session?.accessToken;
-    const response = await axios.delete(apiUrl + '/invoices/' + id, {
-      timeout: 1000,
-      headers: { Authorization: `Bearer ${token}` },
+    const apiUrl = await getApiUrl();
+    const token = await getAccessToken();
+    const res = await fetch(apiUrl + '/invoices/' + id, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
     });
+
     // レスポンスをチェック
-    if (response.status < 200 || response.status >= 300) {
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
+    }
+    if (res.status < 200 || res.status >= 300) {
       return {
         message: 'Error: Failed to Delete Invoice.',
       };
@@ -192,13 +180,8 @@ export async function deleteInvoice(id: string) {
 
     revalidatePath('/dashboard/invoices');
     return { message: 'Deleted Invoice' };
-  } catch (error: any) {
-    const { status } = error.response;
-    if (status === 401 || status === 403) {
-      redirect('/sign-out');
-    } else {
-      return { message: 'Database Error: Failed to Delete Invoice.' };
-    }
+  } catch (error) {
+    return { message: 'Database Error: Failed to Delete Invoice.' };
   }
 }
 
@@ -226,31 +209,28 @@ export async function signUp(
   formData: FormData,
 ) {
   try {
-    const apiUrl = process.env.API_URL;
-    if (!apiUrl) {
-      throw new Error('API_URL is not defined.');
-    }
+    const apiUrl = await getApiUrl();
 
-    const response = await axios.post(
-      apiUrl + '/signup',
-      {
+    const res = await fetch(apiUrl + '/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
         email: formData.get('email'),
         password: formData.get('password'),
         name: formData.get('name'),
-      },
-      {
-        timeout: 1000,
-      },
-    );
+      }),
+    });
+
     // レスポンスをチェック
-    if (response.status < 200 || response.status >= 300) {
+    if (res.status === 401 || res.status === 403) {
+      redirect('/sign-out');
+    }
+    if (res.status < 200 || res.status >= 300) {
       return 'Error: Failed to sign up.';
     }
-  } catch (error: any) {
-    console.log(error);
-    if (error.response?.data) {
-      return error.response.data;
-    }
+  } catch (error) {
     return 'Error: Failed to sign up.';
   }
   redirect('/login');
