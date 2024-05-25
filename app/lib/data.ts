@@ -1,21 +1,24 @@
 import {
   CustomerField,
   CustomersTableType,
+  FormattedCustomersTable,
   InvoiceForm,
   InvoicesTable,
+  LatestInvoice,
   LatestInvoiceRaw,
   Revenue,
 } from './definitions';
 import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getAccessToken, getApiUrl } from './apiConfig';
+import { getAccessToken, getNextPublicApiUrl } from './apiConfig';
 import { UnauthorizedError } from '../lib/errors';
 
 export async function fetchRevenue() {
   // Add noStore() here to prevent the response from being cached.
   // This is equivalent to in fetch(..., {cache: 'no-store'}).
   noStore();
+  let data = [] as Revenue[];
   try {
     // Artificially delay a response for demo purposes.
     // Don't do this in production :)
@@ -25,38 +28,40 @@ export async function fetchRevenue() {
 
     // const data = await sql<Revenue>`SELECT * FROM revenue`;
 
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(apiUrl + '/revenues', {
+    const res = await fetch(nextPublicApiUrl + '/revenues', {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
     });
 
-    const data = await res.json();
-
     // console.log('Data fetch completed after 3 seconds.');
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch revenue data.');
     }
-
-    return data as Revenue[];
-  } catch (error) {
+    data = await res.json();
+  } catch (error: unknown) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return data;
 }
 
 export async function fetchLatestInvoices() {
   noStore();
+  let latestInvoices = [] as LatestInvoice[];
   try {
     // const data = await sql<LatestInvoiceRaw>`
     //   SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
@@ -65,39 +70,46 @@ export async function fetchLatestInvoices() {
     //   ORDER BY invoices.date DESC
     //   LIMIT 5`;
 
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(apiUrl + '/invoices/latest', {
+    const res = await fetch(nextPublicApiUrl + '/invoices/latest', {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
     });
-
-    const data = (await res.json()) as LatestInvoiceRaw[];
-
-    const latestInvoices = data.map((invoice: LatestInvoiceRaw) => ({
-      ...invoice,
-      amount: formatCurrency(invoice.amount),
-    }));
-
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch the latest invoices.');
     }
 
-    return latestInvoices;
-  } catch (error) {
-    console.error('Failed to fetch the latest invoices.');
-    redirect('/sign-out');
+    const data = (await res.json()) as LatestInvoiceRaw[];
+
+    latestInvoices = data.map((invoice: LatestInvoiceRaw) => ({
+      ...invoice,
+      amount: formatCurrency(invoice.amount),
+    }));
+  } catch (error: unknown) {
+    if (error instanceof UnauthorizedError) {
+      redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
+    }
   }
+  return latestInvoices;
 }
 
 export async function fetchCardData() {
   noStore();
+  let numberOfCustomers = 0;
+  let numberOfInvoices = 0;
+  let totalPaidInvoices = '0';
+  let totalPendingInvoices = '0';
   try {
     // You can probably combine these into a single SQL query
     // However, we are intentionally splitting them to demonstrate
@@ -109,23 +121,23 @@ export async function fetchCardData() {
     //      SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
     //      FROM invoices`;
 
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
     const res = await Promise.all([
-      await fetch(apiUrl + '/invoices/count', {
+      await fetch(nextPublicApiUrl + '/invoices/count', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       }),
-      await fetch(apiUrl + '/customers/count', {
+      await fetch(nextPublicApiUrl + '/customers/count', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       }),
-      await fetch(apiUrl + '/invoices/statusCount', {
+      await fetch(nextPublicApiUrl + '/invoices/statusCount', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -135,7 +147,7 @@ export async function fetchCardData() {
 
     for (const response of res) {
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
+        if (response.status === 401) {
           throw new UnauthorizedError();
         }
         throw new Error('Failed to fetch card data.');
@@ -144,10 +156,10 @@ export async function fetchCardData() {
 
     const data = await Promise.all(res.map((response) => response.json()));
 
-    const numberOfInvoices = Number(data[0] ?? '0');
-    const numberOfCustomers = Number(data[1] ?? '0');
-    const totalPaidInvoices = formatCurrency(data[2].paid ?? '0');
-    const totalPendingInvoices = formatCurrency(data[2].pending ?? '0');
+    numberOfInvoices = Number(data[0] ?? '0');
+    numberOfCustomers = Number(data[1] ?? '0');
+    totalPaidInvoices = formatCurrency(data[2].paid ?? '0');
+    totalPendingInvoices = formatCurrency(data[2].pending ?? '0');
 
     return {
       numberOfCustomers,
@@ -158,9 +170,18 @@ export async function fetchCardData() {
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return {
+    numberOfCustomers,
+    numberOfInvoices,
+    totalPaidInvoices,
+    totalPendingInvoices,
+  };
 }
 
 const ITEMS_PER_PAGE = 6;
@@ -169,6 +190,7 @@ export async function fetchFilteredInvoices(
   currentPage: number,
 ) {
   noStore();
+  let data = [] as InvoicesTable[];
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
   try {
@@ -192,11 +214,20 @@ export async function fetchFilteredInvoices(
     // ORDER BY invoices.date DESC
     // LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     // `;
-    const apiUrl = await getApiUrl();
+
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
     const res = await fetch(
-      apiUrl + '/invoices/filtered?page=' + currentPage + '&query=' + query,
+      nextPublicApiUrl +
+        '/invoices/filtered?page=' +
+        currentPage +
+        '&query=' +
+        query +
+        '&limit=' +
+        ITEMS_PER_PAGE +
+        '&offset=' +
+        offset,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -206,25 +237,28 @@ export async function fetchFilteredInvoices(
     );
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch invoices.');
     }
 
-    const data = await res.json();
-
-    return data as InvoicesTable[];
+    data = await res.json();
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return data;
 }
 
 export async function fetchInvoicesPages(query: string) {
   noStore();
+  let totalPages = 0;
   try {
     //   const count = await sql`SELECT COUNT(*)
     //   FROM invoices
@@ -237,18 +271,21 @@ export async function fetchInvoicesPages(query: string) {
     //     invoices.status ILIKE ${`%${query}%`}
     // `;
 
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(apiUrl + '/invoices/pages?query=' + query, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const res = await fetch(
+      nextPublicApiUrl + '/invoices/pages?query=' + query,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch total number of invoices.');
@@ -256,18 +293,22 @@ export async function fetchInvoicesPages(query: string) {
 
     const count = await res.json();
 
-    const totalPages = Math.ceil(Number(count) / ITEMS_PER_PAGE);
-    return totalPages;
+    totalPages = Math.ceil(Number(count) / ITEMS_PER_PAGE);
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return totalPages;
 }
 
 export async function fetchInvoiceById(id: string) {
   noStore();
+  let data = {} as InvoiceForm;
   try {
     // const data = await sql<InvoiceForm>`
     //   SELECT
@@ -279,10 +320,10 @@ export async function fetchInvoiceById(id: string) {
     //   WHERE invoices.id = ${id};
     // `;
 
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(apiUrl + '/invoices/' + id, {
+    const res = await fetch(nextPublicApiUrl + '/invoices/' + id, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -290,31 +331,29 @@ export async function fetchInvoiceById(id: string) {
     });
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch invoice.');
     }
 
-    const data = (await res.json()) as InvoiceForm;
-
-    // const invoice = data.map((invoice) => ({
-    //   ...invoice,
-    //   // Convert amount from cents to dollars
-    //   amount: invoice.amount / 100,
-    // }));
+    data = (await res.json()) as InvoiceForm;
     data.amount = data.amount / 100;
-    return data;
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return data;
 }
 
 export async function fetchCustomers() {
   noStore();
+  let data = [] as CustomerField[];
   try {
     // const data = await sql<CustomerField>`
     //   SELECT
@@ -324,10 +363,10 @@ export async function fetchCustomers() {
     //   ORDER BY name ASC
     // `;
 
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(apiUrl + '/customers', {
+    const res = await fetch(nextPublicApiUrl + '/customers', {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -335,25 +374,28 @@ export async function fetchCustomers() {
     });
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch all customers.');
     }
 
-    const customers = (await res.json()) as CustomerField[];
-
-    return customers;
+    data = await res.json();
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return data;
 }
 
 export async function fetchFilteredCustomers(query: string) {
   noStore();
+  let customers = [] as FormattedCustomersTable[];
   try {
     // const data = await sql<CustomersTableType>`
     // SELECT
@@ -372,18 +414,21 @@ export async function fetchFilteredCustomers(query: string) {
     // GROUP BY customers.id, customers.name, customers.email, customers.image_url
     // ORDER BY customers.name ASC
     // `;
-    const apiUrl = await getApiUrl();
+    const nextPublicApiUrl = await getNextPublicApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(apiUrl + '/customers/filtered?query=' + query, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+    const res = await fetch(
+      nextPublicApiUrl + '/customers/filtered?query=' + query,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
       },
-    });
+    );
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error('Failed to fetch customer table.');
@@ -391,19 +436,21 @@ export async function fetchFilteredCustomers(query: string) {
 
     const data = (await res.json()) as CustomersTableType[];
 
-    const customers = data.map((customer) => ({
+    customers = data.map((customer) => ({
       ...customer,
       total_pending: formatCurrency(customer.total_pending),
       total_paid: formatCurrency(customer.total_paid),
     }));
-
-    return customers;
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
+    } else if (error instanceof Error) {
+      console.error(`Error: ${error.message}`);
+    } else {
+      console.error('An unknown error occurred. Error details: ', error);
     }
-    throw error;
   }
+  return customers;
 }
 
 // export async function getUser(email: string) {

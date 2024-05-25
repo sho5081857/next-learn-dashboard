@@ -79,7 +79,7 @@ export async function createInvoice(prevState: State, formData: FormData) {
     });
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error();
@@ -142,7 +142,7 @@ export async function updateInvoice(
     });
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error();
@@ -160,7 +160,6 @@ export async function updateInvoice(
 }
 
 export async function deleteInvoice(id: string) {
-
   try {
     // await sql`DELETE FROM invoices WHERE id = ${id}`;
 
@@ -175,7 +174,7 @@ export async function deleteInvoice(id: string) {
     });
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         throw new UnauthorizedError();
       }
       throw new Error();
@@ -183,7 +182,6 @@ export async function deleteInvoice(id: string) {
 
     revalidatePath('/dashboard/invoices');
     return { message: 'Deleted Invoice' };
-
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
