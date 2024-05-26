@@ -1,4 +1,4 @@
-import { fetchFilteredCustomers } from '@/app/lib/data';
+import { fetchFilteredCustomers } from '@/app/lib/customers/data';
 import CustomersTable from '@/app/ui/customers/table';
 import { Metadata } from 'next';
 
