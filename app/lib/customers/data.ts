@@ -2,7 +2,7 @@
 
 import { unstable_noStore as noStore } from 'next/cache';
 import { CustomerField, CustomersTableType, FormattedCustomersTable } from '../definitions';
-import { getAccessToken, getNextPublicApiUrl } from '../apiConfig';
+import { getAccessToken, getApiUrl } from '../apiConfig';
 import { UnauthorizedError } from '../errors';
 import { redirect } from 'next/navigation';
 import { formatCurrency } from '../utils';
@@ -20,10 +20,10 @@ export async function fetchCustomers() {
     //   ORDER BY name ASC
     // `;
 
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(nextPublicApiUrl + '/customers', {
+    const res = await fetch(apiUrl + '/customers', {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -71,11 +71,11 @@ export async function fetchFilteredCustomers(query: string) {
     // GROUP BY customers.id, customers.name, customers.email, customers.image_url
     // ORDER BY customers.name ASC
     // `;
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
     const res = await fetch(
-      nextPublicApiUrl + '/customers/filtered?query=' + query,
+      apiUrl + '/customers/filtered?query=' + query,
       {
         headers: {
           'Content-Type': 'application/json',

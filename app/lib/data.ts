@@ -1,7 +1,7 @@
 import { formatCurrency } from './utils';
 import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getAccessToken, getNextPublicApiUrl } from './apiConfig';
+import { getAccessToken, getApiUrl } from './apiConfig';
 import { UnauthorizedError } from '../lib/errors';
 
 export async function fetchCardData() {
@@ -21,23 +21,23 @@ export async function fetchCardData() {
     //      SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
     //      FROM invoices`;
 
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
     const res = await Promise.all([
-      await fetch(nextPublicApiUrl + '/invoices/count', {
+      await fetch(apiUrl + '/invoices/count', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       }),
-      await fetch(nextPublicApiUrl + '/customers/count', {
+      await fetch(apiUrl + '/customers/count', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       }),
-      await fetch(nextPublicApiUrl + '/invoices/statusCount', {
+      await fetch(apiUrl + '/invoices/statusCount', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,

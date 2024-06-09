@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { getNextPublicApiUrl, getAccessToken } from '../apiConfig';
+import { getAccessToken, getApiUrl } from '../apiConfig';
 import { Revenue } from '../definitions';
 import { UnauthorizedError } from '../errors';
 
@@ -18,10 +18,10 @@ export async function fetchRevenue() {
 
     // const data = await sql<Revenue>`SELECT * FROM revenue`;
 
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(nextPublicApiUrl + '/revenues', {
+    const res = await fetch(apiUrl + '/revenues', {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,

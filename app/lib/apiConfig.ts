@@ -17,11 +17,3 @@ export async function getAccessToken() {
   }
   return token;
 }
-
-export async function getNextPublicApiUrl() {
-  const nextPublicApiUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (!nextPublicApiUrl) {
-    throw new Error('NEXT_PUBLIC_API_URL is not defined.');
-  }
-  return nextPublicApiUrl;
-}

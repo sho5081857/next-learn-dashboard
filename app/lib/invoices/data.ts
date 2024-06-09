@@ -5,7 +5,7 @@ import {
   LatestInvoice,
   LatestInvoiceRaw,
 } from '../definitions';
-import { getAccessToken, getNextPublicApiUrl } from '../apiConfig';
+import { getAccessToken, getApiUrl } from '../apiConfig';
 import { redirect } from 'next/navigation';
 import { UnauthorizedError } from '../errors';
 import { formatCurrency } from '../utils';
@@ -20,11 +20,10 @@ export async function fetchLatestInvoices() {
     //   JOIN customers ON invoices.customer_id = customers.id
     //   ORDER BY invoices.date DESC
     //   LIMIT 5`;
-
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(nextPublicApiUrl + '/invoices/latest', {
+    const res = await fetch(apiUrl + '/invoices/latest', {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -86,11 +85,11 @@ export async function fetchFilteredInvoices(
     // LIMIT ${ITEMS_PER_PAGE} OFFSET ${offset}
     // `;
 
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
     const res = await fetch(
-      nextPublicApiUrl +
+      apiUrl +
         '/invoices/filtered?page=' +
         currentPage +
         '&query=' +
@@ -142,11 +141,11 @@ export async function fetchInvoicesPages(query: string) {
     //     invoices.status ILIKE ${`%${query}%`}
     // `;
 
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
     const res = await fetch(
-      nextPublicApiUrl + '/invoices/pages?query=' + query,
+      apiUrl + '/invoices/pages?query=' + query,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -191,10 +190,10 @@ export async function fetchInvoiceById(id: string) {
     //   WHERE invoices.id = ${id};
     // `;
 
-    const nextPublicApiUrl = await getNextPublicApiUrl();
+    const apiUrl = await getApiUrl();
     const token = await getAccessToken();
 
-    const res = await fetch(nextPublicApiUrl + '/invoices/' + id, {
+    const res = await fetch(apiUrl + '/invoices/' + id, {
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
