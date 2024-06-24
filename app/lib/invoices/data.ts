@@ -1,4 +1,3 @@
-import { unstable_noStore as noStore } from 'next/cache';
 import {
   InvoiceForm,
   InvoicesTable,
@@ -11,7 +10,6 @@ import { UnauthorizedError } from '../errors';
 import { formatCurrency } from '../utils';
 
 export async function fetchLatestInvoices() {
-  noStore();
   let latestInvoices = [] as LatestInvoice[];
   try {
     // const data = await sql<LatestInvoiceRaw>`
@@ -59,7 +57,6 @@ export async function fetchFilteredInvoices(
   query: string,
   currentPage: number,
 ) {
-  noStore();
   let data = [] as InvoicesTable[];
   const offset = (currentPage - 1) * ITEMS_PER_PAGE;
 
@@ -127,7 +124,6 @@ export async function fetchFilteredInvoices(
 }
 
 export async function fetchInvoicesPages(query: string) {
-  noStore();
   let totalPages = 0;
   try {
     //   const count = await sql`SELECT COUNT(*)
@@ -177,7 +173,6 @@ export async function fetchInvoicesPages(query: string) {
 }
 
 export async function fetchInvoiceById(id: string) {
-  noStore();
   let data = {} as InvoiceForm;
   try {
     // const data = await sql<InvoiceForm>`

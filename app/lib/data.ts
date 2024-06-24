@@ -1,11 +1,9 @@
 import { formatCurrency } from './utils';
-import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getAccessToken, getApiUrl } from './apiConfig';
 import { UnauthorizedError } from '../lib/errors';
 
 export async function fetchCardData() {
-  noStore();
   let numberOfCustomers = 0;
   let numberOfInvoices = 0;
   let totalPaidInvoices = '0';
