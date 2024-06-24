@@ -1,6 +1,3 @@
-
-
-import { unstable_noStore as noStore } from 'next/cache';
 import { CustomerField, CustomersTableType, FormattedCustomersTable } from '../definitions';
 import { getAccessToken, getApiUrl } from '../apiConfig';
 import { UnauthorizedError } from '../errors';
@@ -9,7 +6,6 @@ import { formatCurrency } from '../utils';
 
 
 export async function fetchCustomers() {
-  noStore();
   let data = [] as CustomerField[];
   try {
     // const data = await sql<CustomerField>`
@@ -51,7 +47,6 @@ export async function fetchCustomers() {
 }
 
 export async function fetchFilteredCustomers(query: string) {
-  noStore();
   let customers = [] as FormattedCustomersTable[];
   try {
     // const data = await sql<CustomersTableType>`

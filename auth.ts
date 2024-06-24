@@ -6,16 +6,6 @@ import { authConfig } from './auth.config';
 import type { JWT } from 'next-auth/jwt';
 import { getApiUrl } from './app/lib/apiConfig';
 
-// async function getUser(email: string): Promise<User | undefined> {
-//   try {
-//     const user = await sql<User>`SELECT * FROM users WHERE email=${email}`;
-//     return user.rows[0];
-//   } catch (error) {
-//     console.error('Failed to fetch user:', error);
-//     throw new Error('Failed to fetch user.');
-//   }
-// }
-
 const fetchAPI = async (url: string, options: RequestInit) => {
   const apiUrl = await getApiUrl();
   const res = await fetch(`${apiUrl}${url}`, options);

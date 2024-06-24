@@ -12,7 +12,7 @@ https://nodejs.org/en
 
 ## Install the project's packages
 ```bash
-npm i
+pnpm i
 ```
 
 ## Environment Variables
@@ -22,15 +22,15 @@ cp .env.example .env
 
 ## Start the development server
 ```bash
-npm run dev
+pnpm dev
 ```
 
 ## Generate the production build
 ```bash
-npm run build
+pnpm build
 ```
 
 ## Start the production server
 ```bash
-npm run start
+pnpm start
 ```

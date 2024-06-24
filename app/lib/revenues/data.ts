@@ -1,13 +1,9 @@
-import { unstable_noStore as noStore } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getAccessToken, getApiUrl } from '../apiConfig';
 import { Revenue } from '../definitions';
 import { UnauthorizedError } from '../errors';
 
 export async function fetchRevenue() {
-  // Add noStore() here to prevent the response from being cached.
-  // This is equivalent to in fetch(..., {cache: 'no-store'}).
-  noStore();
   let data = [] as Revenue[];
   try {
     // Artificially delay a response for demo purposes.
