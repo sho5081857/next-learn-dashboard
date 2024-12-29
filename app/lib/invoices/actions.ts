@@ -180,13 +180,9 @@ export async function deleteInvoice(id: string) {
     }
 
     revalidatePath('/dashboard/invoices');
-    return { message: 'Deleted Invoice' };
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       redirect('/sign-out');
     }
-    return {
-      message: 'Error: Failed to Delete Invoice.',
-    };
   }
 }
