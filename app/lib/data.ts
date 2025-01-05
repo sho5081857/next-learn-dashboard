@@ -35,7 +35,7 @@ export async function fetchCardData() {
           Authorization: `Bearer ${token}`,
         },
       }),
-      await fetch(apiUrl + '/invoices/statusCount', {
+      await fetch(apiUrl + '/invoices/status/count', {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
