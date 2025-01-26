@@ -17,7 +17,7 @@ const fetchAPI = async (url: string, options: RequestInit) => {
 };
 
 const authorizeUser = async (email: string, password: string) => {
-  const user = await fetchAPI('/auth/login', {
+  const user = await fetchAPI('/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -65,6 +65,5 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     accessToken?: string;
-    refreshToken?: string;
   }
 }

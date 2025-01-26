@@ -31,7 +31,7 @@ export async function signUp(
   try {
     const apiUrl = await getApiUrl();
 
-    const res = await fetch(apiUrl + '/auth/register', {
+    const res = await fetch(apiUrl + '/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
