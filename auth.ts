@@ -16,30 +16,6 @@ const fetchAPI = async (url: string, options: RequestInit) => {
   return res.json();
 };
 
-const verifyAccessToken = async (token: JWT) => {
-  const apiUrl = await getApiUrl();
-  const res = await fetch(`${apiUrl}/token/verify`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token.accessToken}`,
-    },
-  });
-  return res.ok;
-};
-
-const refreshAccessToken = async (token: JWT) => {
-  const { access_token } = await fetchAPI('/token/refresh', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: token.refreshToken }),
-  });
-  return {
-    accessToken: access_token,
-    refreshToken: token.refreshToken,
-  };
-};
-
 const authorizeUser = async (email: string, password: string) => {
   const user = await fetchAPI('/login', {
     method: 'POST',
@@ -70,18 +46,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async jwt({ token, user }: { token: JWT; user: any }) {
       if (user) {
-        token.accessToken = (user as User).access_token;
-        token.refreshToken = (user as User).refresh_token;
-        return token;
+        token.accessToken = (user as User).token;
       }
-      if (await verifyAccessToken(token)) {
-        return token;
-      }
-
-      return refreshAccessToken(token);
+      return token;
     },
     async session({ session, token }) {
-      // JWTトークンをセッションオブジェクトに格納
       session.accessToken = token.accessToken as string | undefined;
       return session;
     },
@@ -96,6 +65,5 @@ declare module 'next-auth' {
 declare module 'next-auth/jwt' {
   interface JWT {
     accessToken?: string;
-    refreshToken?: string;
   }
 }
